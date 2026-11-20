@@ -1,0 +1,7 @@
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+
+# Raw BLE captures: they include every nearby device's name and address
+captures/

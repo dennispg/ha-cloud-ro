@@ -1,0 +1,18 @@
+[project]
+name = "ha-cloud-ro"
+version = "0.1.0"
+description = "Home Assistant integration and BLE reverse-engineering tools for the Cloud RO water filter"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "bleak>=3.1.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

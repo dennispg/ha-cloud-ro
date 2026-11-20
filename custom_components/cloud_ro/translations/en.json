@@ -1,0 +1,54 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "description": "Choose the Cloud RO to add.",
+        "data": {
+          "address": "Device"
+        }
+      },
+      "bluetooth_confirm": {
+        "description": "Do you want to add {name}?"
+      }
+    },
+    "abort": {
+      "already_configured": "This Cloud RO is already set up.",
+      "no_devices_found": "No Cloud RO found. Close the Cloud phone app (the filter is invisible while the app is connected to it) and make sure a connectable Bluetooth adapter or proxy is in range."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "poll_interval": "Poll interval"
+        },
+        "data_description": {
+          "poll_interval": "How often to connect to the filter and read it. Each poll uses some of the filter's battery and briefly blocks the phone app from connecting."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "tds_inlet": {
+        "name": "TDS inlet"
+      },
+      "tds_filtered": {
+        "name": "TDS filtered"
+      },
+      "tds_remineralized": {
+        "name": "TDS remineralized"
+      },
+      "rejection": {
+        "name": "Membrane rejection"
+      },
+      "total_water": {
+        "name": "Total water"
+      },
+      "battery_voltage": {
+        "name": "Battery voltage"
+      }
+    }
+  }
+}

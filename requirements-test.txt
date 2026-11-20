@@ -1,0 +1,15 @@
+# Full Home Assistant test harness for tests/test_integration.py.
+#   uv run --no-project --with-requirements requirements-test.txt pytest
+#
+# Home Assistant installs its Bluetooth and USB component dependencies at
+# runtime, so the harness needs them listed explicitly.
+pytest-homeassistant-custom-component
+aiousbwatcher
+serialx
+bleak
+bleak-retry-connector
+bluetooth-adapters
+bluetooth-auto-recovery
+bluetooth-data-tools
+dbus-fast
+habluetooth
