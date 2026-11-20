@@ -19,11 +19,10 @@ from homeassistant.const import (
     UnitOfVolume,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import CONNECTION_BLUETOOTH, DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .coordinator import CloudROConfigEntry, CloudROCoordinator
+from .coordinator import CloudROConfigEntry
+from .entity import CloudROEntity
 from .parser import CloudROData
 
 
@@ -74,6 +73,22 @@ SENSORS: tuple[CloudROSensorDescription, ...] = (
         value_fn=lambda d: d.total_gallons,
     ),
     CloudROSensorDescription(
+        key="month_water",
+        translation_key="month_water",
+        device_class=SensorDeviceClass.WATER,
+        native_unit_of_measurement=UnitOfVolume.GALLONS,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        suggested_display_precision=1,
+        value_fn=lambda d: d.month_gallons,
+    ),
+    CloudROSensorDescription(
+        key="tank_level",
+        translation_key="tank_level",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda d: d.tank_level,
+    ),
+    CloudROSensorDescription(
         key="battery",
         device_class=SensorDeviceClass.BATTERY,
         native_unit_of_measurement=PERCENTAGE,
@@ -104,31 +119,10 @@ async def async_setup_entry(
     async_add_entities(CloudROSensor(coordinator, desc) for desc in SENSORS)
 
 
-class CloudROSensor(CoordinatorEntity[CloudROCoordinator], SensorEntity):
+class CloudROSensor(CloudROEntity, SensorEntity):
     """A single value read from the unit."""
 
-    _attr_has_entity_name = True
     entity_description: CloudROSensorDescription
-
-    def __init__(
-        self, coordinator: CloudROCoordinator, description: CloudROSensorDescription
-    ) -> None:
-        """Initialize the sensor."""
-        super().__init__(coordinator)
-        self.entity_description = description
-        self._attr_unique_id = f"{coordinator.address}_{description.key}"
-
-        title = coordinator.config_entry.title
-        serial = title.removeprefix("Cloud RO ")
-        self._attr_device_info = DeviceInfo(
-            connections={(CONNECTION_BLUETOOTH, coordinator.address)},
-            name=title,
-            manufacturer="Cloud Water Filters",
-            model="Cloud RO",
-            # Only a real serial if the unit advertised its "<serial>-CL" name.
-            serial_number=None if ":" in serial else serial,
-            sw_version=coordinator.data.firmware,
-        )
 
     @property
     def native_value(self) -> float | int | None:

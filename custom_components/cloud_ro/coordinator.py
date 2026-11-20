@@ -16,14 +16,16 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
+    CHAR_CLOCK,
     CHAR_FIRMWARE,
     CHAR_LIVE,
+    CHAR_USAGE,
     CONF_POLL_INTERVAL,
     DEFAULT_POLL_INTERVAL,
     DOMAIN,
     MIN_STALE_TIME,
 )
-from .parser import CloudROData, parse_firmware, parse_live
+from .parser import CloudROData, parse_firmware, parse_live, parse_month_ounces
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -80,7 +82,13 @@ class CloudROCoordinator(DataUpdateCoordinator[CloudROData]):
         )
         try:
             live = await client.read_gatt_char(CHAR_LIVE)
-            firmware = parse_firmware(await client.read_gatt_char(CHAR_FIRMWARE))
+            firmware = await client.read_gatt_char(CHAR_FIRMWARE)
+            clock = await client.read_gatt_char(CHAR_CLOCK)
+            usage = await client.read_gatt_char(CHAR_USAGE)
         finally:
             await client.disconnect()
-        return parse_live(bytes(live), firmware)
+        return parse_live(
+            bytes(live),
+            firmware=parse_firmware(bytes(firmware)),
+            month_ounces=parse_month_ounces(bytes(clock), bytes(usage)),
+        )

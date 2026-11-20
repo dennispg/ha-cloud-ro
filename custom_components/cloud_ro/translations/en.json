@@ -30,7 +30,18 @@
     }
   },
   "entity": {
+    "binary_sensor": {
+      "tank_filling": {
+        "name": "Tank filling"
+      }
+    },
     "sensor": {
+      "month_water": {
+        "name": "Water this month"
+      },
+      "tank_level": {
+        "name": "Tank level"
+      },
       "tds_inlet": {
         "name": "TDS inlet"
       },

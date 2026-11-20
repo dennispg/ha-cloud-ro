@@ -6,10 +6,13 @@ DOMAIN = "cloud_ro"
 
 SERVICE_UUID = "5e3c1400-0929-41b6-89ea-502be1edf8b0"
 CHAR_FIRMWARE = "5e3c1401-0929-41b6-89ea-502be1edf8b0"
+CHAR_CLOCK = "5e3c1402-0929-41b6-89ea-502be1edf8b0"
 CHAR_LIVE = "5e3c1404-0929-41b6-89ea-502be1edf8b0"
+CHAR_USAGE = "5e3c1406-0929-41b6-89ea-502be1edf8b0"
 
-# The unit advertises as "<serial>-CL".
-NAME_SUFFIX = "-CL"
+# The unit's name is "<serial>-CLOUDRO"; advertisements may truncate it to
+# "<serial>-CL", so the serial is whatever precedes this marker.
+NAME_MARKER = "-CL"
 
 # Minutes between polls (an option). The unit is battery powered and accepts
 # one connection at a time, so each poll connects briefly and disconnects.

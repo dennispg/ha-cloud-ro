@@ -30,7 +30,7 @@ from .const import (
     DOMAIN,
     MAX_POLL_INTERVAL,
     MIN_POLL_INTERVAL,
-    NAME_SUFFIX,
+    NAME_MARKER,
     SERVICE_UUID,
 )
 
@@ -53,13 +53,14 @@ OPTIONS_SCHEMA = vol.Schema(
 
 
 def _is_cloud_ro(info: BluetoothServiceInfoBleak) -> bool:
-    return SERVICE_UUID in info.service_uuids or info.name.endswith(NAME_SUFFIX)
+    return SERVICE_UUID in info.service_uuids or NAME_MARKER in info.name
 
 
 def _title(info: BluetoothServiceInfoBleak) -> str:
-    """Use the advertised name ("<serial>-CL") when there is one."""
-    if info.name.endswith(NAME_SUFFIX):
-        return f"Cloud RO {info.name.removesuffix(NAME_SUFFIX)}"
+    """Use the serial from the advertised name when there is one."""
+    serial, marker, _ = info.name.partition(NAME_MARKER)
+    if serial and marker:
+        return f"Cloud RO {serial}"
     return f"Cloud RO {info.address}"
 
 

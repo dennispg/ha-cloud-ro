@@ -29,8 +29,11 @@ changes to the filter.
 | TDS remineralized | ppm | What comes out of the faucet |
 | Membrane rejection | % | Calculated: how much of the inlet TDS the membrane removes |
 | Total water | gal | Lifetime total; matches "total gallons consumed" in the app. Home Assistant shows litres on metric systems. |
+| Water this month | gal | Resets at the start of each calendar month (by the filter's clock, which runs on UTC) |
+| Tank level | % | 100% is the reading of a full tank on the unit this was developed with; yours may top out slightly differently |
+| Tank filling | on/off | On while the filter is refilling the tank |
 | Battery | % | Unconfirmed, treat as approximate |
-| Battery voltage | V | Unconfirmed, treat as approximate |
+| Battery voltage | V | Treat as approximate |
 
 Readings refresh every 5 minutes by default; see [Options](#options).
 
@@ -81,7 +84,8 @@ restart Home Assistant.
 There is nothing to configure: no MAC address or serial number to type in. If
 you have more than one filter, each is listed by its serial number, which you
 can check in the Cloud app under **Account → Cloud Devices**. (The filter's
-Bluetooth name is the serial followed by `-CL`, for example `AB123-CL`.) If
+Bluetooth name is the serial followed by `-CLOUDRO`, for example
+`AB123-CLOUDRO`.) If
 Home Assistant hasn't seen the filter's name yet, it is listed by its Bluetooth
 address instead.
 
@@ -122,14 +126,35 @@ choose **Configure** to change the one setting:
 
 ## What's missing
 
-- **Tank level.** The app shows it, but the field hasn't been identified yet.
+Not exposed by the integration yet:
+
 - **Filter life.** The unit doesn't appear to send a per-filter percentage; the
   app likely calculates it from a stored date and water usage.
-- **Usage history and TDS history.** The unit stores both and the format is
-  mostly understood, but the integration doesn't expose them.
+- **Usage history and TDS history.** The unit stores twelve monthly usage
+  counters and a log of timestamped TDS readings. The format is understood, but
+  only the current month's usage is exposed.
+- **Water flowing right now.** The unit flags it, but a periodic poll would
+  almost never catch it.
 
-Details of every characteristic, including the unidentified fields, are in
-[docs/PROTOCOL.md](docs/PROTOCOL.md).
+## Still to figure out in the protocol
+
+Everything known so far is in [docs/PROTOCOL.md](docs/PROTOCOL.md). These are
+the open questions, roughly in order of usefulness:
+
+| Question | What is known | What would answer it |
+|---|---|---|
+| How is filter life tracked? | The unit stores one timestamp of unknown purpose, plausibly the last filter change. No percentage has been seen. | A capture before and after resetting a filter in the app |
+| What unit is the tank reading in, and is "full" the same on every unit? | Reads 45 to 46 when full on one unit; one step is about 3.6 oz | Captures from other units, or drawing a measured volume from a full tank |
+| What unit is the tank pressure in? | Reads about 244 when full | A pressure gauge on the tank line |
+| Is the battery percent field right? | It reads 99 on fresh batteries; the voltage beside it behaves like a battery | A capture from a unit with low batteries, with what the app shows |
+| What are the four constant values in the live readings? | 51, 253, 48, 248; they have never changed | Captures from other units, or at a different water temperature |
+| What does the status bit that is always 1 mean? | Its neighbour means "tank filling" | Captures during a fault, a filter change, or low battery |
+| What is the settings block? | Three values (32, 37, 100) in a writable characteristic | Changing settings in the app and capturing before and after |
+| What is the extra usage counter? | One number that, added to the twelve monthly counters, gives the lifetime total exactly | A capture after a year rollover |
+| What are the stored decimal numbers? | Several floating-point values that look like sensor calibration | Probably only the app's code |
+| What commands does the unit accept? | A writable command characteristic holds the text `TDSHISTORY`. Nothing has ever been written to the unit in this project. | Watching what the app writes, with a Bluetooth sniffer or the app's code |
+| Where do the app's other figures come from? | "Water quality", pH, "local toxins" and "minerals added" match nothing the unit sends | Likely calculated in the app or fetched from Cloud's servers |
+| Do other firmware versions differ? | Only `V1.05` has been seen | A capture from any other version |
 
 ## Helping decode the rest
 
@@ -139,7 +164,7 @@ filter. Close the Cloud app before running them, and note that Home Assistant
 may hold the connection for a few seconds if a refresh happens to be running.
 
 ```sh
-# Is the unit advertising? Look for <serial>-CL
+# Is the unit advertising? Look for <serial>-CLOUDRO (often shortened to <serial>-CL)
 uv run tools/scan.py -t 30 -f "-CL"
 
 # Connect, dump every characteristic, and log notifications for two minutes

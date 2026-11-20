@@ -18,8 +18,10 @@ from bleak.backends.scanner import AdvertisementData
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.cloud_ro.const import (
+    CHAR_CLOCK,
     CHAR_FIRMWARE,
     CHAR_LIVE,
+    CHAR_USAGE,
     CONF_POLL_INTERVAL,
     DOMAIN,
     SERVICE_UUID,
@@ -30,12 +32,12 @@ from homeassistant.const import CONF_ADDRESS
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.util.unit_system import US_CUSTOMARY_SYSTEM
 
-from .test_parser import FIRMWARE, LIVE
+from .test_parser import CLOCK, FIRMWARE, LIVE, USAGE
 
 ADDRESS = "D4:12:34:56:78:9A"
 
 
-def _service_info(name: str | None = "AB123-CL") -> BluetoothServiceInfoBleak:
+def _service_info(name: str | None = "AB123-CLOUDRO") -> BluetoothServiceInfoBleak:
     return BluetoothServiceInfoBleak(
         name=name or ADDRESS,
         address=ADDRESS,
@@ -72,6 +74,8 @@ def mock_unit():
     client.read_gatt_char.side_effect = lambda uuid: {
         CHAR_LIVE: bytearray(LIVE),
         CHAR_FIRMWARE: bytearray(FIRMWARE),
+        CHAR_CLOCK: bytearray(CLOCK),
+        CHAR_USAGE: bytearray(USAGE),
     }[uuid]
     with (
         patch(
@@ -97,6 +101,15 @@ async def test_bluetooth_discovery(hass, mock_unit):
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == "Cloud RO AB123"
     assert result["data"] == {CONF_ADDRESS: ADDRESS}
+
+
+async def test_truncated_name_still_gives_serial(hass, mock_unit):
+    """Advertisements can carry the shortened name "<serial>-CL"."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_BLUETOOTH}, data=_service_info("AB123-CL")
+    )
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+    assert result["title"] == "Cloud RO AB123"
 
 
 async def test_user_flow_without_advertised_name(hass, mock_unit):
@@ -146,7 +159,10 @@ async def test_setup_creates_sensors_and_disconnects(hass, mock_unit):
     assert states["sensor.cloud_ro_ab123_tds_remineralized"] == "28"
     assert float(states["sensor.cloud_ro_ab123_total_water"]) == pytest.approx(231.98, abs=0.01)
     assert states["sensor.cloud_ro_ab123_battery"] == "99"
-    assert len(states) == 7
+    assert states["sensor.cloud_ro_ab123_tank_level"] == "98"
+    assert float(states["sensor.cloud_ro_ab123_water_this_month"]) == pytest.approx(14.45, abs=0.01)
+    assert len(states) == 9
+    assert hass.states.get("binary_sensor.cloud_ro_ab123_tank_filling").state == "off"
     mock_unit.disconnect.assert_awaited_once()
 
 
