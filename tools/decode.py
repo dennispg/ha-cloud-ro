@@ -1,9 +1,9 @@
-"""Decode a gatt.py capture of a Cloud RO into candidate fields.
+"""Decode a gatt.py capture of a Cloud RO into raw fields.
 
 Usage: uv run tools/decode.py captures/gatt.jsonl
 
-Field meanings are still being worked out; this prints raw structure so values
-can be matched against what the phone app shows.
+This prints raw structure so values can be matched against what the phone app
+shows. Field meanings are in docs/PROTOCOL.md.
 """
 
 import json
@@ -12,6 +12,9 @@ import sys
 from datetime import datetime
 
 SHORT = lambda uuid: uuid[4:8]  # 5e3c14XX-... -> 14XX
+
+# Factory/service command characteristics: deliberately left undecoded.
+SKIP = {"1410", "1411"}
 
 
 def ts(n: int) -> str:
@@ -26,14 +29,10 @@ def decode(char: str, b: bytes) -> str:
     if char == "1401":
         return f"firmware={cstr(b[:8])!r} u16@9={struct.unpack_from('<H', b, 9)[0]}"
     if char == "1402":
-        now, since = cstr(b[:16]), cstr(b[16:32])
-        u32 = struct.unpack_from("<10I", b, 32)
-        return f"clock={ts(int(now))} since={ts(int(since))} u32={u32}"
+        # Only the first 16 bytes belong to 1402; the rest is whatever follows.
+        return f"clock={ts(int(cstr(b[:16])))}"
     if char == "1403":
-        since = cstr(b[:16])
-        u32 = struct.unpack_from("<10I", b, 16)
-        dbl = struct.unpack_from("<5d", b, 56)
-        return f"since={ts(int(since))} u32={u32} doubles={[round(x, 3) for x in dbl]}"
+        return f"power_on={ts(int(cstr(b[:16])))}"
     if char == "1404":
         return f"u16={struct.unpack_from('<19H', b, 0)}"
     if char == "1405":
@@ -49,8 +48,6 @@ def decode(char: str, b: bytes) -> str:
     if char == "1407":
         t, a, c, d = struct.unpack_from("<IHHH", b, 0)
         return f"{ts(t)} {a}/{c}/{d} rest={b[10:].hex()}"
-    if char in ("1410", "1411"):
-        return repr(cstr(b))
     return b.hex()
 
 
@@ -60,6 +57,8 @@ for line in open(sys.argv[1]):
     if r["ev"] not in ("char", "notify") or not r.get("value") or r["value"].startswith("ERR"):
         continue
     char = SHORT(r["char"])
+    if char in SKIP:
+        continue
     text = decode(char, bytes.fromhex(r["value"]))
     if char == "1404":  # drop the 1 Hz uptime counter so only real changes print
         u = list(struct.unpack_from("<19H", bytes.fromhex(r["value"]), 0))

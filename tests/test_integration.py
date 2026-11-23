@@ -158,11 +158,16 @@ async def test_setup_creates_sensors_and_disconnects(hass, mock_unit):
     assert states["sensor.cloud_ro_ab123_tds_filtered"] == "4"
     assert states["sensor.cloud_ro_ab123_tds_remineralized"] == "28"
     assert float(states["sensor.cloud_ro_ab123_total_water"]) == pytest.approx(231.98, abs=0.01)
-    assert states["sensor.cloud_ro_ab123_battery"] == "99"
-    assert states["sensor.cloud_ro_ab123_tank_level"] == "98"
+    assert states["sensor.cloud_ro_ab123_tank_level"] == "96"
+    assert float(states["sensor.cloud_ro_ab123_tank_water"]) == pytest.approx(1.89, abs=0.01)
+    assert states["sensor.cloud_ro_ab123_tank_pressure"] == "44"
     assert float(states["sensor.cloud_ro_ab123_water_this_month"]) == pytest.approx(14.45, abs=0.01)
-    assert len(states) == 9
+    # The battery percent sensor is disabled by default: not every board sends it.
+    assert "sensor.cloud_ro_ab123_battery" not in states
+    assert len(states) == 10
     assert hass.states.get("binary_sensor.cloud_ro_ab123_tank_filling").state == "off"
+    assert hass.states.get("binary_sensor.cloud_ro_ab123_outlet_valve").state == "on"
+    assert hass.states.get("binary_sensor.cloud_ro_ab123_battery").state == "off"
     mock_unit.disconnect.assert_awaited_once()
 
 

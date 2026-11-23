@@ -54,11 +54,18 @@ def test_parse_live():
     assert data.battery_voltage == 4.585
     assert data.rejection == pytest.approx(98.93, abs=0.01)
     assert data.firmware == "V1.05"
-    assert data.tank_pressure_raw == 242
-    assert data.tank_reading == 44
-    assert data.tank_level == 98
+    assert data.tank_ounces == 242
+    assert data.tank_gallons == pytest.approx(1.89, abs=0.01)
+    assert data.tank_pressure == 44
+    assert data.tank_max_pressure == 51
+    assert data.tank_max_ounces == 253
+    assert data.tank_month_max_pressure == 48
+    assert data.tank_month_max_ounces == 248
+    assert data.tank_level == 96
     assert data.filling is False
+    assert data.outlet_open is True
     assert data.dispensing is False
+    assert data.battery_low is False
     assert data.month_ounces is None
     assert data.month_gallons is None
 
@@ -66,10 +73,11 @@ def test_parse_live():
 def test_parse_live_while_filling():
     data = parser.parse_live(LIVE_FILLING)
     assert data.total_ounces == 29792
-    assert data.tank_pressure_raw == 219
-    assert data.tank_reading == 35
-    assert data.tank_level == 78
+    assert data.tank_ounces == 219
+    assert data.tank_pressure == 35
+    assert data.tank_level == 87
     assert data.filling is True
+    assert data.outlet_open is True
     assert data.dispensing is False
 
 
@@ -77,13 +85,25 @@ def test_parse_live_while_dispensing():
     data = parser.parse_live(LIVE_DISPENSING)
     assert data.dispensing is True
     assert data.filling is False
-    assert data.tank_level == 69
+    assert data.tank_level == 82
 
 
 def test_tank_level_is_capped():
     full = bytearray(LIVE)
-    full[16] = 46  # readings of 46 are seen on a full tank
+    full[6] = 255  # more stored water than the recorded lifetime maximum
     assert parser.parse_live(bytes(full)).tank_level == 100
+
+
+def test_tank_level_without_a_recorded_maximum():
+    assert parser.parse_live(bytes(30)).tank_level is None
+
+
+def test_battery_low_goes_by_voltage():
+    low = bytearray(LIVE)
+    low[14:16] = (3999).to_bytes(2, "little")
+    assert parser.parse_live(bytes(low)).battery_low is True
+    low[14:16] = (4000).to_bytes(2, "little")
+    assert parser.parse_live(bytes(low)).battery_low is False
 
 
 def test_parse_live_minimum_length():
@@ -102,14 +122,23 @@ def test_parse_firmware():
 
 
 def test_parse_month_ounces():
-    # November is tm_mon 10; that counter read 1850 oz.
+    # The clock reads 2026-11-20 UTC; the November counter read 1850 oz.
     assert parser.parse_month_ounces(CLOCK, USAGE) == 1850
     assert parser.parse_live(LIVE, month_ounces=1850).month_gallons == pytest.approx(14.45, abs=0.01)
 
 
+def test_parse_month_ounces_uses_only_the_timestamp():
+    # Bytes after the 16-byte timestamp are not part of the characteristic.
+    assert parser.parse_month_ounces(CLOCK[:16], USAGE) == 1850
+    assert parser.parse_month_ounces(CLOCK[:16] + bytes(84), USAGE) == 1850
+    # 2026-12-01 00:00:00 UTC picks the December counter.
+    december = b"1796083200".ljust(16, b"\0")
+    assert parser.parse_month_ounces(december, USAGE) == 657
+
+
 def test_parse_month_ounces_rejects_bad_input():
-    assert parser.parse_month_ounces(CLOCK[:40], USAGE) is None
     assert parser.parse_month_ounces(CLOCK, USAGE[:10]) is None
-    bad_month = bytearray(CLOCK)
-    bad_month[48] = 12
-    assert parser.parse_month_ounces(bytes(bad_month), USAGE) is None
+    assert parser.parse_month_ounces(b"", USAGE) is None
+    assert parser.parse_month_ounces(bytes(16), USAGE) is None
+    assert parser.parse_month_ounces(b"not a time".ljust(16, b"\0"), USAGE) is None
+    assert parser.parse_month_ounces(b"9" * 16, USAGE) is None

@@ -16,6 +16,7 @@ from homeassistant.const import (
     PERCENTAGE,
     EntityCategory,
     UnitOfElectricPotential,
+    UnitOfPressure,
     UnitOfVolume,
 )
 from homeassistant.core import HomeAssistant
@@ -89,11 +90,31 @@ SENSORS: tuple[CloudROSensorDescription, ...] = (
         value_fn=lambda d: d.tank_level,
     ),
     CloudROSensorDescription(
+        key="tank_water",
+        translation_key="tank_water",
+        device_class=SensorDeviceClass.VOLUME_STORAGE,
+        native_unit_of_measurement=UnitOfVolume.GALLONS,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=2,
+        value_fn=lambda d: d.tank_gallons,
+    ),
+    CloudROSensorDescription(
+        key="tank_pressure",
+        translation_key="tank_pressure",
+        device_class=SensorDeviceClass.PRESSURE,
+        native_unit_of_measurement=UnitOfPressure.PSI,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda d: d.tank_pressure,
+    ),
+    # Not every board reports a percentage, so this is off unless enabled by
+    # hand. The "Battery" binary sensor (from the voltage) is the one to use.
+    CloudROSensorDescription(
         key="battery",
         device_class=SensorDeviceClass.BATTERY,
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
         value_fn=lambda d: d.battery_percent,
     ),
     CloudROSensorDescription(

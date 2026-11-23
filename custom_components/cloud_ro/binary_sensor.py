@@ -10,6 +10,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
     BinarySensorEntityDescription,
 )
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
@@ -31,6 +32,20 @@ BINARY_SENSORS: tuple[CloudROBinarySensorDescription, ...] = (
         translation_key="tank_filling",
         device_class=BinarySensorDeviceClass.RUNNING,
         value_fn=lambda d: d.filling,
+    ),
+    CloudROBinarySensorDescription(
+        key="outlet_valve",
+        translation_key="outlet_valve",
+        device_class=BinarySensorDeviceClass.OPENING,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda d: d.outlet_open,
+    ),
+    # On means low, judged by voltage the way the Cloud app does.
+    CloudROBinarySensorDescription(
+        key="battery_low",
+        device_class=BinarySensorDeviceClass.BATTERY,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda d: d.battery_low,
     ),
 )
 

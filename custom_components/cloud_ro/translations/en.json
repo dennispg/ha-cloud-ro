@@ -33,6 +33,9 @@
     "binary_sensor": {
       "tank_filling": {
         "name": "Tank filling"
+      },
+      "outlet_valve": {
+        "name": "Outlet valve"
       }
     },
     "sensor": {
@@ -41,6 +44,12 @@
       },
       "tank_level": {
         "name": "Tank level"
+      },
+      "tank_water": {
+        "name": "Tank water"
+      },
+      "tank_pressure": {
+        "name": "Tank pressure"
       },
       "tds_inlet": {
         "name": "TDS inlet"

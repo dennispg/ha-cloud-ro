@@ -15,10 +15,12 @@ Bluetooth proxy Home Assistant already uses. No cloud account, no app, and no
 changes to the filter.
 
 > **Status: early.** The protocol was worked out from a single unit on firmware
-> `V1.05`. The integration passes its tests inside a Home Assistant test
-> harness with Bluetooth mocked, but has had little time against real hardware.
-> Some values are still unidentified (see [What's missing](#whats-missing)).
-> This project is not affiliated with or endorsed by Cloud Water Filters.
+> `V1.05`. The data layout has since been confirmed, and other firmware
+> versions share it. The integration passes its tests
+> inside a Home Assistant test harness with Bluetooth mocked, but has had
+> little time against real hardware.
+> This project is unofficial: it is not affiliated with or endorsed by Cloud
+> Water Filters.
 
 ## What you get
 
@@ -30,10 +32,14 @@ changes to the filter.
 | Membrane rejection | % | Calculated: how much of the inlet TDS the membrane removes |
 | Total water | gal | Lifetime total; matches "total gallons consumed" in the app. Home Assistant shows litres on metric systems. |
 | Water this month | gal | Resets at the start of each calendar month (by the filter's clock, which runs on UTC) |
-| Tank level | % | 100% is the reading of a full tank on the unit this was developed with; yours may top out slightly differently |
+| Tank level | % | Stored water compared with the most your unit has ever held. That record is a peak, so a full tank usually reads a little under 100% |
+| Tank water | gal | Water stored in the tank; roughly 1.8 to 2 gal (230 to 250 oz) when full, depending on the unit and your water pressure |
+| Tank pressure | psi | |
 | Tank filling | on/off | On while the filter is refilling the tank |
-| Battery | % | Unconfirmed, treat as approximate |
-| Battery voltage | V | Treat as approximate |
+| Outlet valve | open/closed | Diagnostic. Open is the normal state |
+| Battery | normal/low | Diagnostic. Low below 4.0 V, the same rule the Cloud app uses |
+| Battery voltage | V | Diagnostic. Below 3.9 V it is time to replace the battery |
+| Battery (percent) | % | Diagnostic, disabled by default. Not every unit reports it; go by the voltage instead |
 
 Readings refresh every 5 minutes by default; see [Options](#options).
 
@@ -120,43 +126,44 @@ choose **Configure** to change the one setting:
   signal.
 - **Setup keeps retrying.** Home Assistant can see the filter but can't connect
   to it. This is nearly always range, or a proxy without `active: true`.
-- **Values look wrong.** Your firmware may lay its data out differently. Please
-  open an issue with your firmware version (shown on the device page), and see
-  below for how to capture what your unit sends.
+- **Values look wrong.** Please open an issue with your firmware version
+  (shown on the device page), and see [Capture tools](#capture-tools) for how
+  to record what your unit sends.
 
 ## What's missing
 
-Not exposed by the integration yet:
+Not available from the filter:
 
-- **Filter life.** The unit doesn't appear to send a per-filter percentage; the
-  app likely calculates it from a stored date and water usage.
+- **Filter life.** The unit holds nothing per filter. The filters and battery
+  are replaced together as a set, and the replacement date is not worked out
+  on the unit, so the app is the place to see it.
+- **Water quality, pH, toxins and minerals.** The app calculates or looks
+  these up; the unit doesn't send them.
+
+Available, but not exposed by the integration yet:
+
 - **Usage history and TDS history.** The unit stores twelve monthly usage
-  counters and a log of timestamped TDS readings. The format is understood, but
-  only the current month's usage is exposed.
+  counters and a log of timestamped TDS readings. Only the current month's
+  usage is exposed.
 - **Water flowing right now.** The unit flags it, but a periodic poll would
   almost never catch it.
+- **Tank records.** The highest tank pressure and most stored water the unit
+  has seen, over its lifetime and for the current month. The lifetime figure is
+  used to work out the tank level.
+- **Power-on date.** When the unit was last powered up.
 
-## Still to figure out in the protocol
+## The protocol
 
-Everything known so far is in [docs/PROTOCOL.md](docs/PROTOCOL.md). These are
-the open questions, roughly in order of usefulness:
+Everything the unit sends is written up in
+[docs/PROTOCOL.md](docs/PROTOCOL.md). The layout is confirmed, and the
+questions that used to be listed here have all been answered. Two fields that
+had been read the wrong way round (tank pressure and stored water) are fixed.
 
-| Question | What is known | What would answer it |
-|---|---|---|
-| How is filter life tracked? | The unit stores one timestamp of unknown purpose, plausibly the last filter change. No percentage has been seen. | A capture before and after resetting a filter in the app |
-| What unit is the tank reading in, and is "full" the same on every unit? | Reads 45 to 46 when full on one unit; one step is about 3.6 oz | Captures from other units, or drawing a measured volume from a full tank |
-| What unit is the tank pressure in? | Reads about 244 when full | A pressure gauge on the tank line |
-| Is the battery percent field right? | It reads 99 on fresh batteries; the voltage beside it behaves like a battery | A capture from a unit with low batteries, with what the app shows |
-| What are the four constant values in the live readings? | 51, 253, 48, 248; they have never changed | Captures from other units, or at a different water temperature |
-| What does the status bit that is always 1 mean? | Its neighbour means "tank filling" | Captures during a fault, a filter change, or low battery |
-| What is the settings block? | Three values (32, 37, 100) in a writable characteristic | Changing settings in the app and capturing before and after |
-| What is the extra usage counter? | One number that, added to the twelve monthly counters, gives the lifetime total exactly | A capture after a year rollover |
-| What are the stored decimal numbers? | Several floating-point values that look like sensor calibration | Probably only the app's code |
-| What commands does the unit accept? | A writable command characteristic holds the text `TDSHISTORY`. Nothing has ever been written to the unit in this project. | Watching what the app writes, with a Bluetooth sniffer or the app's code |
-| Where do the app's other figures come from? | "Water quality", pH, "local toxins" and "minerals added" match nothing the unit sends | Likely calculated in the app or fetched from Cloud's servers |
-| Do other firmware versions differ? | Only `V1.05` has been seen | A capture from any other version |
+Please keep any experimenting read-only. The unit has service characteristics
+that this project deliberately leaves undocumented, because writing to them
+can return the unit to a factory or uncalibrated state.
 
-## Helping decode the rest
+## Capture tools
 
 The [tools/](tools/) folder has the scripts used to work out the protocol. They
 need [uv](https://docs.astral.sh/uv/) and a computer with Bluetooth near the
@@ -177,9 +184,9 @@ uv run tools/decode.py captures/gatt.jsonl
 `gatt.py` only reads; it never writes to the unit. Captures go in `captures/`,
 which is git-ignored because a raw scan records every nearby Bluetooth device.
 
-The most useful contribution is a capture taken while something known is
-happening, with a note of what the app showed: draw a few litres so the tank
-drains and refills, or capture just before and after a filter change.
+If your values look wrong, the most useful thing to attach to an issue is a
+capture taken while something known is happening, with a note of what the app
+showed: for example, draw a few litres so the tank drains and refills.
 
 ## Development
 
